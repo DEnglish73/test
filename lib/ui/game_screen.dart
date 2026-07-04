@@ -276,7 +276,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('✨', style: TextStyle(fontSize: 40)),
+              const Icon(Icons.auto_awesome,
+                  size: 40, color: Color(0xFFFFE14D)),
               const SizedBox(height: 8),
               Text(
                 _lastLevel ? 'All levels complete!' : 'Level complete!',
