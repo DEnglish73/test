@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 
-import 'ui/game_screen.dart';
+import 'services/progress.dart';
+import 'ui/level_select_screen.dart';
 
-void main() => runApp(const PrismApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Progress.init();
+  runApp(const PrismApp());
+}
 
 class PrismApp extends StatelessWidget {
   const PrismApp({super.key});
@@ -21,7 +26,7 @@ class PrismApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      home: const GameScreen(),
+      home: const LevelSelectScreen(),
     );
   }
 }

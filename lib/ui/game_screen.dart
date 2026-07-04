@@ -3,62 +3,94 @@ import 'package:flutter/material.dart';
 import '../game/level.dart';
 import '../game/piece.dart';
 import '../game/tracer.dart';
+import '../services/progress.dart';
+import '../services/sfx.dart';
 import 'board_painter.dart';
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
+  const GameScreen({super.key, required this.levelIndex});
+
+  final int levelIndex;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen>
-    with SingleTickerProviderStateMixin {
+class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   late final AnimationController _pulse = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 2),
   )..repeat();
 
-  int _levelIndex = 0;
+  late final AnimationController _winFx = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  );
+
   late Board _board;
   late TraceResult _result;
+  bool _won = false;
+  bool _showOverlay = false;
+  int _litCount = 0;
 
   Piece? _dragging;
   Offset? _dragPos;
 
-  Level get _level => levels[_levelIndex];
-  bool get _lastLevel => _levelIndex == levels.length - 1;
+  Level get _level => levels[widget.levelIndex];
+  bool get _lastLevel => widget.levelIndex == levels.length - 1;
 
   @override
   void initState() {
     super.initState();
-    _loadLevel(0);
+    _reset();
   }
 
   @override
   void dispose() {
     _pulse.dispose();
+    _winFx.dispose();
     super.dispose();
   }
 
-  void _loadLevel(int index) {
-    _levelIndex = index;
-    _board = Board.fromLevel(levels[index]);
+  void _reset() {
+    _board = Board.fromLevel(_level);
     _dragging = null;
     _dragPos = null;
-    _retrace();
+    _won = false;
+    _showOverlay = false;
+    _winFx.reset();
+    _result = trace(_board);
+    _litCount = _countLit();
   }
+
+  int _countLit() => _result.received.entries
+      .where((e) => e.value == e.key.mask && e.key.mask != 0)
+      .length;
 
   void _retrace() {
     _result = trace(_board, ignore: _dragging);
+    final lit = _countLit();
+    if (_result.won && !_won) {
+      _won = true;
+      Sfx.play('win');
+      _winFx.forward(from: 0);
+      Progress.markCompleted(widget.levelIndex);
+      Future.delayed(const Duration(milliseconds: 550), () {
+        if (mounted && _won) setState(() => _showOverlay = true);
+      });
+    } else if (lit > _litCount && !_result.won) {
+      Sfx.play('lit');
+    }
+    _litCount = lit;
   }
 
   void _onTapUp(TapUpDetails details, BoardGeometry g) {
-    if (_result.won) return;
+    if (_won) return;
     final cell = g.cellAt(details.localPosition);
     if (cell == null) return;
     final piece = _board.at(cell.x, cell.y);
     if (piece == null || !piece.rotatable) return;
+    Sfx.play('rotate');
     setState(() {
       piece.rotate();
       _retrace();
@@ -66,11 +98,12 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _onPanStart(DragStartDetails details, BoardGeometry g) {
-    if (_result.won) return;
+    if (_won) return;
     final cell = g.cellAt(details.localPosition);
     if (cell == null) return;
     final piece = _board.at(cell.x, cell.y);
     if (piece == null || !piece.movable) return;
+    Sfx.play('pickup');
     setState(() {
       _dragging = piece;
       _dragPos = details.localPosition;
@@ -94,6 +127,7 @@ class _GameScreenState extends State<GameScreen>
         if (cell != null) {
           final occupant = _board.at(cell.x, cell.y);
           if (occupant == null || occupant == piece) {
+            if (piece.x != cell.x || piece.y != cell.y) Sfx.play('drop');
             piece.x = cell.x;
             piece.y = cell.y;
           }
@@ -135,12 +169,13 @@ class _GameScreenState extends State<GameScreen>
                               board: _board,
                               result: _result,
                               pulse: _pulse,
+                              winFx: _winFx,
                               dragging: _dragging,
                               dragPos: _dragPos,
                             ),
                           ),
                         ),
-                        if (_result.won) _buildWinOverlay(),
+                        if (_showOverlay) _buildWinOverlay(),
                       ],
                     );
                   },
@@ -161,10 +196,8 @@ class _GameScreenState extends State<GameScreen>
       child: Row(
         children: [
           IconButton(
-            tooltip: 'Previous level',
-            onPressed: _levelIndex > 0
-                ? () => setState(() => _loadLevel(_levelIndex - 1))
-                : null,
+            tooltip: 'Level select',
+            onPressed: () => Navigator.of(context).maybePop(),
             icon: const Icon(Icons.chevron_left),
           ),
           Expanded(
@@ -178,15 +211,21 @@ class _GameScreenState extends State<GameScreen>
                   ),
                 ),
                 Text(
-                  'Level ${_levelIndex + 1} of ${levels.length}',
+                  'Level ${widget.levelIndex + 1} of ${levels.length}',
                   style: style.bodySmall?.copyWith(color: Colors.white54),
                 ),
               ],
             ),
           ),
           IconButton(
+            tooltip: Sfx.muted ? 'Unmute' : 'Mute',
+            onPressed: () =>
+                setState(() => Progress.setMuted(!Sfx.muted)),
+            icon: Icon(Sfx.muted ? Icons.volume_off : Icons.volume_up),
+          ),
+          IconButton(
             tooltip: 'Reset level',
-            onPressed: () => setState(() => _loadLevel(_levelIndex)),
+            onPressed: () => setState(_reset),
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -219,33 +258,57 @@ class _GameScreenState extends State<GameScreen>
     return Container(
       color: Colors.black54,
       alignment: Alignment.center,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-        decoration: BoxDecoration(
-          color: const Color(0xFF161C2B),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF2C355A)),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeOutBack,
+        builder: (context, t, child) => Transform.scale(
+          scale: 0.7 + 0.3 * t,
+          child: Opacity(opacity: t.clamp(0.0, 1.0), child: child),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('✨', style: TextStyle(fontSize: 40)),
-            const SizedBox(height: 8),
-            Text(
-              _lastLevel ? 'All levels complete!' : 'Level complete!',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+          decoration: BoxDecoration(
+            color: const Color(0xFF161C2B),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF2C355A)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('✨', style: TextStyle(fontSize: 40)),
+              const SizedBox(height: 8),
+              Text(
+                _lastLevel ? 'All levels complete!' : 'Level complete!',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
-            FilledButton(
-              onPressed: () => setState(
-                () => _loadLevel(_lastLevel ? 0 : _levelIndex + 1),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    child: const Text('Levels'),
+                  ),
+                  if (!_lastLevel) ...[
+                    const SizedBox(width: 12),
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              GameScreen(levelIndex: widget.levelIndex + 1),
+                        ),
+                      ),
+                      child: const Text('Next level'),
+                    ),
+                  ],
+                ],
               ),
-              child: Text(_lastLevel ? 'Play again' : 'Next level'),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

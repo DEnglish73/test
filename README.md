@@ -16,8 +16,11 @@ beams down to a single color; and beams that meet at a target mix additively
 - Light every target with **exactly** its required color — extra colors spoil
   the mix.
 
-Six levels ramp up the mechanics: mirrors → filters → prism splitting →
-color mixing → all of it at once.
+Twelve levels ramp up the mechanics: mirrors → filters → prism splitting →
+color mixing → crossing beams, wall detours, recombination, and prisms used
+as color-dependent benders. Progress is saved locally; each level unlocks
+the next. Sound effects are procedurally generated sine-wave chimes
+(see `assets/audio/`), with a mute toggle that persists.
 
 ## The optics, briefly
 
@@ -49,9 +52,14 @@ lib/
     piece.dart   sources, mirrors, prisms, filters, targets, walls
     level.dart   board model + the six handcrafted levels
     tracer.dart  the ray-tracing engine
+  services/
+    progress.dart       completion/unlock state + settings (shared_preferences)
+    sfx.dart            fire-and-forget sound effects (audioplayers)
   ui/
-    board_painter.dart  CustomPainter: glowing beams, pieces, drag feedback
-    game_screen.dart    gestures, level flow, win overlay
+    board_painter.dart  CustomPainter: glowing beams, pieces, drag feedback,
+                        win particle bursts
+    game_screen.dart    gestures, sounds, win celebration, navigation
+    level_select_screen.dart  level grid with lock/complete states
 ```
 
 Every level definition is covered by a test that applies its intended

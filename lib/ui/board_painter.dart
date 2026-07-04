@@ -45,14 +45,19 @@ class BoardPainter extends CustomPainter {
     required this.board,
     required this.result,
     required Animation<double> pulse,
+    required this.winFx,
     this.dragging,
     this.dragPos,
   })  : _pulse = pulse,
-        super(repaint: pulse);
+        super(repaint: Listenable.merge([pulse, winFx]));
 
   final Board board;
   final TraceResult result;
   final Animation<double> _pulse;
+
+  /// 0 → idle; 0..1 → win celebration playing.
+  final Animation<double> winFx;
+
   final Piece? dragging;
   final Offset? dragPos;
 
@@ -69,7 +74,49 @@ class BoardPainter extends CustomPainter {
       if (p == dragging) continue;
       _paintPiece(canvas, g, p, g.cellRect(p.x, p.y));
     }
+    if (winFx.value > 0 && winFx.value < 1) _paintWinFx(canvas, g);
     _paintDrag(canvas, g);
+  }
+
+  void _paintWinFx(Canvas canvas, BoardGeometry g) {
+    final spread = Curves.easeOutCubic.transform(winFx.value);
+    final fade = (1 - winFx.value).clamp(0.0, 1.0);
+    var seed = 0;
+    for (final piece in board.pieces) {
+      if (piece.type != PieceType.target) continue;
+      seed++;
+      if ((result.received[piece] ?? 0) != piece.mask) continue;
+      final c = g.cellCenter(piece.x, piece.y);
+      final color = Light.colorOf(piece.mask);
+
+      canvas.drawCircle(
+        c,
+        spread * g.cell * 1.9,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(0.5, g.cell * 0.12 * fade)
+          ..color = color.withValues(alpha: 0.7 * fade)
+          ..blendMode = BlendMode.plus,
+      );
+
+      // Deterministic sparks so every repaint of the same win agrees.
+      final rnd = math.Random(seed * 7919);
+      for (var i = 0; i < 26; i++) {
+        final angle = rnd.nextDouble() * 2 * math.pi;
+        final dist = (0.8 + rnd.nextDouble() * 2.0) * spread * g.cell;
+        final radius =
+            g.cell * (0.03 + rnd.nextDouble() * 0.05) * (0.4 + 0.6 * fade);
+        final spark = rnd.nextBool() ? color : Colors.white;
+        canvas.drawCircle(
+          c + Offset(math.cos(angle), math.sin(angle)) * dist,
+          radius,
+          Paint()
+            ..color = spark.withValues(alpha: 0.9 * fade)
+            ..blendMode = BlendMode.plus
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, radius * 0.8),
+        );
+      }
+    }
   }
 
   void _paintBackdrop(Canvas canvas, BoardGeometry g) {
@@ -118,8 +165,12 @@ class BoardPainter extends CustomPainter {
       final b = g.origin + s.b * g.cell;
       final color = Light.colorOf(s.mask);
 
+      // Beams flash brighter for a moment when the level is won.
+      final flash =
+          winFx.value > 0 ? 0.35 * (1 - winFx.value).clamp(0.0, 1.0) : 0.0;
       final halo = Paint()
-        ..color = color.withValues(alpha: 0.30 + 0.15 * _breath)
+        ..color = color.withValues(
+            alpha: (0.30 + 0.15 * _breath + flash).clamp(0.0, 1.0))
         ..strokeWidth = g.cell * 0.30
         ..strokeCap = StrokeCap.round
         ..blendMode = BlendMode.plus

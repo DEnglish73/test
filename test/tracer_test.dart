@@ -139,6 +139,12 @@ void main() {
       'Split Decision': [(3, 1, true), (3, 7, false)],
       'Better Together': [(6, 2, false), (6, 6, true)],
       'Grand Finale': [(3, 0, true), (3, 8, false), (6, 4, true)],
+      'Crossfire': [(3, 1, false), (5, 7, true)],
+      'Cyan Lab': [(5, 2, false), (5, 6, true)],
+      'Detour': [(2, 4, true), (2, 1, true), (6, 1, false)],
+      'Trichromatic': [(3, 4, true), (2, 1, true), (2, 7, false)],
+      'Two of a Kind': [(3, 1, true), (6, 1, false), (3, 6, false), (6, 6, true)],
+      'Prism Cascade': [(4, 4, true), (2, 2, true), (2, 6, false)],
     };
 
     for (final level in levels) {
