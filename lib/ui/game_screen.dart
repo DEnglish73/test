@@ -27,11 +27,23 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     duration: const Duration(milliseconds: 1400),
   );
 
+  late final AnimationController _sweep = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 350),
+    value: 1,
+  );
+
   late Board _board;
   late TraceResult _result;
   bool _won = false;
   bool _showOverlay = false;
   int _litCount = 0;
+  int _moves = 0;
+  int _stars = 0;
+
+  /// Bumped on every reset/level change so stale delayed callbacks
+  /// (win sound, overlay reveal) from a previous attempt are dropped.
+  int _generation = 0;
 
   Piece? _dragging;
   Offset? _dragPos;
@@ -49,34 +61,53 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void dispose() {
     _pulse.dispose();
     _winFx.dispose();
+    _sweep.dispose();
     super.dispose();
   }
 
   void _reset() {
+    _generation++;
     _board = Board.fromLevel(_level);
     _dragging = null;
     _dragPos = null;
     _won = false;
     _showOverlay = false;
+    _moves = 0;
+    _stars = 0;
     _winFx.reset();
     _result = trace(_board);
     _litCount = _countLit();
+    _sweep.forward(from: 0);
   }
 
   int _countLit() => _result.received.entries
       .where((e) => e.value == e.key.mask && e.key.mask != 0)
       .length;
 
-  void _retrace() {
+  /// Recomputes the light. When [boardChanged], the beams sweep out from
+  /// their sources again and the celebration waits for the light to land.
+  void _retrace({bool boardChanged = false}) {
     _result = trace(_board, ignore: _dragging);
+    if (boardChanged) _sweep.forward(from: 0);
     final lit = _countLit();
     if (_result.won && !_won) {
       _won = true;
-      Sfx.play('win');
-      _winFx.forward(from: 0);
+      _stars = _moves <= _level.par
+          ? 3
+          : _moves <= _level.par + 2
+              ? 2
+              : 1;
       Progress.markCompleted(widget.levelIndex);
-      Future.delayed(const Duration(milliseconds: 550), () {
-        if (mounted && _won) setState(() => _showOverlay = true);
+      Progress.setStars(widget.levelIndex, _stars);
+      final generation = _generation;
+      Future.delayed(const Duration(milliseconds: 360), () {
+        if (!mounted || generation != _generation) return;
+        Sfx.play('win');
+        _winFx.forward(from: 0);
+      });
+      Future.delayed(const Duration(milliseconds: 950), () {
+        if (!mounted || generation != _generation) return;
+        setState(() => _showOverlay = true);
       });
     } else if (lit > _litCount && !_result.won) {
       Sfx.play('lit');
@@ -93,7 +124,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     Sfx.play('rotate');
     setState(() {
       piece.rotate();
-      _retrace();
+      _moves++;
+      _retrace(boardChanged: true);
     });
   }
 
@@ -107,7 +139,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     setState(() {
       _dragging = piece;
       _dragPos = details.localPosition;
-      _retrace();
+      _retrace(boardChanged: true);
     });
   }
 
@@ -127,13 +159,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         if (cell != null) {
           final occupant = _board.at(cell.x, cell.y);
           if (occupant == null || occupant == piece) {
-            if (piece.x != cell.x || piece.y != cell.y) Sfx.play('drop');
+            if (piece.x != cell.x || piece.y != cell.y) {
+              Sfx.play('drop');
+              _moves++;
+            }
             piece.x = cell.x;
             piece.y = cell.y;
           }
         }
       }
-      _retrace();
+      _retrace(boardChanged: true);
     });
   }
 
@@ -170,6 +205,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                               result: _result,
                               pulse: _pulse,
                               winFx: _winFx,
+                              sweep: _sweep,
                               dragging: _dragging,
                               dragPos: _dragPos,
                             ),
@@ -211,7 +247,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   ),
                 ),
                 Text(
-                  'Level ${widget.levelIndex + 1} of ${levels.length}',
+                  'Level ${widget.levelIndex + 1} of ${levels.length}'
+                  ' · $_moves moves · par ${_level.par}',
                   style: style.bodySmall?.copyWith(color: Colors.white54),
                 ),
               ],
@@ -276,8 +313,21 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.auto_awesome,
-                  size: 40, color: Color(0xFFFFE14D)),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < 3; i++)
+                    Icon(
+                      i < _stars
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
+                      size: i == 1 ? 44 : 34,
+                      color: i < _stars
+                          ? const Color(0xFFFFE14D)
+                          : Colors.white24,
+                    ),
+                ],
+              ),
               const SizedBox(height: 8),
               Text(
                 _lastLevel ? 'All levels complete!' : 'Level complete!',
@@ -285,6 +335,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                 ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$_moves moves · par ${_level.par}',
+                style: const TextStyle(color: Colors.white54, fontSize: 13),
               ),
               const SizedBox(height: 18),
               Row(

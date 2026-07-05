@@ -31,6 +31,15 @@ abstract final class Progress {
     await _prefs?.setStringList('completed', [for (final i in sorted) '$i']);
   }
 
+  /// Best star rating (0-3) earned on a level.
+  static int starsFor(int level) => _prefs?.getInt('stars_$level') ?? 0;
+
+  static Future<void> setStars(int level, int stars) async {
+    if (stars > starsFor(level)) {
+      await _prefs?.setInt('stars_$level', stars);
+    }
+  }
+
   static Future<void> setMuted(bool value) async {
     Sfx.muted = value;
     await _prefs?.setBool('muted', value);

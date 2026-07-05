@@ -46,10 +46,11 @@ class BoardPainter extends CustomPainter {
     required this.result,
     required Animation<double> pulse,
     required this.winFx,
+    required this.sweep,
     this.dragging,
     this.dragPos,
   })  : _pulse = pulse,
-        super(repaint: Listenable.merge([pulse, winFx]));
+        super(repaint: Listenable.merge([pulse, winFx, sweep]));
 
   final Board board;
   final TraceResult result;
@@ -57,6 +58,10 @@ class BoardPainter extends CustomPainter {
 
   /// 0 → idle; 0..1 → win celebration playing.
   final Animation<double> winFx;
+
+  /// Advancing front of the light after a board change: beams are revealed
+  /// out to `sweep.value * result.maxDistance` cells from their sources.
+  final Animation<double> sweep;
 
   final Piece? dragging;
   final Offset? dragPos;
@@ -160,10 +165,26 @@ class BoardPainter extends CustomPainter {
       g.bounds.inflate(g.cell * 0.15),
       Radius.circular(g.cell * 0.3),
     ));
+    final front = sweep.value * result.maxDistance;
     for (final s in result.segments) {
+      final visible = front - s.t0;
+      if (visible <= 0) continue;
+      final fraction = math.min(1.0, visible / s.length);
       final a = g.origin + s.a * g.cell;
-      final b = g.origin + s.b * g.cell;
+      final b = g.origin + Offset.lerp(s.a, s.b, fraction)! * g.cell;
       final color = Light.colorOf(s.mask);
+
+      // A hot tip where the light is still advancing.
+      if (fraction < 1.0) {
+        canvas.drawCircle(
+          b,
+          g.cell * 0.10,
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.9)
+            ..blendMode = BlendMode.plus
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, g.cell * 0.08),
+        );
+      }
 
       // Beams flash brighter for a moment when the level is won.
       final flash =

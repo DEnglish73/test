@@ -34,6 +34,16 @@ void main() {
     expect(Progress.completed, {3});
   });
 
+  test('stars persist and only improve', () async {
+    expect(Progress.starsFor(2), 0);
+    await Progress.setStars(2, 2);
+    expect(Progress.starsFor(2), 2);
+    await Progress.setStars(2, 1); // worse attempt doesn't downgrade
+    expect(Progress.starsFor(2), 2);
+    await Progress.setStars(2, 3);
+    expect(Progress.starsFor(2), 3);
+  });
+
   test('mute setting round-trips', () async {
     expect(Sfx.muted, isFalse);
     await Progress.setMuted(true);

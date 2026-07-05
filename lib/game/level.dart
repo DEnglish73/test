@@ -8,6 +8,7 @@ class Level {
     required this.hint,
     required this.width,
     required this.height,
+    required this.par,
     required this.pieces,
   });
 
@@ -15,6 +16,11 @@ class Level {
   final String hint;
   final int width;
   final int height;
+
+  /// Minimum number of moves (relocations + rotations) needed to win.
+  /// Verified exactly optimal by the solver test.
+  final int par;
+
   final List<Piece> Function() pieces;
 }
 
@@ -58,6 +64,7 @@ Piece _wall(int x, int y) => Piece(type: PieceType.wall, x: x, y: y);
 final List<Level> levels = [
   Level(
     name: 'First Light',
+    par: 2,
     hint: 'Drag the mirror into the beam. Tap it to rotate.',
     width: 7,
     height: 7,
@@ -69,6 +76,7 @@ final List<Level> levels = [
   ),
   Level(
     name: 'Double Bounce',
+    par: 2,
     hint: 'Two mirrors, one path.',
     width: 7,
     height: 7,
@@ -81,6 +89,7 @@ final List<Level> levels = [
   ),
   Level(
     name: 'Red Shift',
+    par: 2,
     hint: 'Filters strip a beam down to one color.',
     width: 7,
     height: 7,
@@ -93,6 +102,7 @@ final List<Level> levels = [
   ),
   Level(
     name: 'Split Decision',
+    par: 2,
     hint: 'A prism splits white light: red goes straight, '
         'green turns left, blue turns right.',
     width: 7,
@@ -109,6 +119,7 @@ final List<Level> levels = [
   ),
   Level(
     name: 'Better Together',
+    par: 3,
     hint: 'Colors mix where beams meet. Red + blue = magenta.',
     width: 7,
     height: 9,
@@ -122,6 +133,7 @@ final List<Level> levels = [
   ),
   Level(
     name: 'Grand Finale',
+    par: 3,
     hint: 'Split it, steer it, mix it back together.',
     width: 7,
     height: 9,
@@ -141,6 +153,7 @@ final List<Level> levels = [
   ),
   Level(
     name: 'Crossfire',
+    par: 3,
     hint: 'Beams pass right through each other.',
     width: 7,
     height: 9,
@@ -155,6 +168,7 @@ final List<Level> levels = [
   ),
   Level(
     name: 'Cyan Lab',
+    par: 3,
     hint: 'Two whites, two filters, one cyan.',
     width: 7,
     height: 9,
@@ -170,6 +184,7 @@ final List<Level> levels = [
   ),
   Level(
     name: 'Detour',
+    par: 3,
     hint: 'No way through — go around.',
     width: 7,
     height: 9,
@@ -188,6 +203,7 @@ final List<Level> levels = [
   ),
   Level(
     name: 'Trichromatic',
+    par: 3,
     hint: 'Every color needs its own road.',
     width: 7,
     height: 9,
@@ -205,6 +221,7 @@ final List<Level> levels = [
   ),
   Level(
     name: 'Two of a Kind',
+    par: 3,
     hint: 'Split the light, then put two colors back together.',
     width: 7,
     height: 9,
@@ -221,6 +238,7 @@ final List<Level> levels = [
   ),
   Level(
     name: 'Prism Cascade',
+    par: 3,
     hint: 'Prisms bend single colors too: green turns left, blue turns right.',
     width: 7,
     height: 9,

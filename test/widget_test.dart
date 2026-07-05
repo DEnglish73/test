@@ -30,7 +30,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.byType(GameScreen), findsOneWidget);
-    expect(find.text('Level 1 of 12'), findsOneWidget);
+    expect(find.textContaining('Level 1 of 12'), findsOneWidget);
+    expect(find.textContaining('par 2'), findsOneWidget);
   });
 
   testWidgets('completed levels unlock their successors', (tester) async {

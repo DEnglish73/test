@@ -84,6 +84,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
                   name: levels[i].name,
                   completed: Progress.isCompleted(i),
                   unlocked: Progress.isUnlocked(i),
+                  stars: Progress.starsFor(i),
                   onTap: () => _open(i),
                 ),
               ),
@@ -101,6 +102,7 @@ class _LevelCard extends StatelessWidget {
     required this.name,
     required this.completed,
     required this.unlocked,
+    required this.stars,
     required this.onTap,
   });
 
@@ -108,6 +110,7 @@ class _LevelCard extends StatelessWidget {
   final String name;
   final bool completed;
   final bool unlocked;
+  final int stars;
   final VoidCallback onTap;
 
   static const _accent = Color(0xFF57E6C0);
@@ -148,19 +151,25 @@ class _LevelCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Icon(
-            completed
-                ? Icons.check_circle
-                : unlocked
-                    ? Icons.play_arrow_rounded
-                    : Icons.lock_outline,
-            size: 20,
-            color: completed
-                ? _accent
-                : unlocked
-                    ? Colors.white54
-                    : Colors.white24,
-          ),
+          if (completed)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < 3; i++)
+                  Icon(
+                    i < stars ? Icons.star_rounded : Icons.star_outline_rounded,
+                    size: 16,
+                    color:
+                        i < stars ? const Color(0xFFFFE14D) : Colors.white24,
+                  ),
+              ],
+            )
+          else
+            Icon(
+              unlocked ? Icons.play_arrow_rounded : Icons.lock_outline,
+              size: 20,
+              color: unlocked ? Colors.white54 : Colors.white24,
+            ),
         ],
       ),
     );

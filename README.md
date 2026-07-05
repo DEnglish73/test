@@ -22,6 +22,13 @@ as color-dependent benders. Progress is saved locally; each level unlocks
 the next. Sound effects are procedurally generated sine-wave chimes
 (see `assets/audio/`), with a mute toggle that persists.
 
+Light physically *travels*: every board change sweeps the beams outward
+from their sources with a glowing tip, and the win celebration waits for
+the light to land. Each level counts your moves against a **par** that is
+provably optimal — an exhaustive solver (`lib/game/solver.dart`) computes
+the true minimum move count for every level in the test suite, so a par
+can never quietly be wrong. Beat par for three stars; par + 2 for two.
+
 ## The optics, briefly
 
 - Light colors are bitmasks over the RGB primaries, so **mixing is `OR`** and
